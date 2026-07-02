@@ -124,6 +124,7 @@
       <!-- <button data-val="淡水">淡水吹風</button> -->
       <!-- <button data-val="花蓮">花蓮山知道</button> -->
       <!-- <button data-val="潭日月">潭日月</button> -->
+      <!-- <button data-val="小承">小承輕旅</button> -->
     </div>
   </div>
 
@@ -154,18 +155,6 @@
     <input type="date" id="dateInput">
   </div>
 
-  <!-- 房型 -->
-  <div class="field" data-key="room">
-    <div class="field-label"><span class="t">房型</span></div>
-    <div class="stack">
-      <button data-val="穀雨標準雙人房">穀雨標準雙人房</button>
-      <button data-val="白露行政雙人房">白露行政雙人房</button>
-      <button data-val="夏至標準四人房">夏至標準四人房</button>
-      <button data-val="小雪行政四人房">小雪行政四人房</button>
-      <button data-val="歲時紀獨賣套房">歲時紀獨賣套房</button>
-    </div>
-  </div>
-
   <!-- 住房率（僅散客顯示） -->
   <div class="field is-hidden" data-key="occ" id="occField">
     <div class="field-label"><span class="t">住房率</span>
@@ -176,6 +165,12 @@
       <button data-val="51%-70%">51%-70%</button>
       <button data-val="70%以上">70%以上</button>
     </div>
+  </div>
+
+  <!-- 房型（選完館別後動態載入） -->
+  <div class="field is-hidden" data-key="room" id="roomField">
+    <div class="field-label"><span class="t">房型</span><span class="hint" id="roomHint"></span></div>
+    <div class="stack" id="roomStack"></div>
   </div>
 
   <button class="cta" id="queryBtn" disabled>查詢房價</button>
@@ -201,6 +196,7 @@ document.querySelectorAll('.field[data-key]').forEach(field=>{
       field.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
       btn.setAttribute('aria-pressed','true');
       state[key] = btn.dataset.val;
+      if(key==='branch') onBranchChange();
       if(key==='category') applyCategoryChange();
       refresh();
     });
@@ -211,6 +207,34 @@ document.getElementById('dateInput').addEventListener('change', e=>{
 });
 
 /* 住房率連動：只有散客顯示 */
+async function onBranchChange(){
+  // 換館別時，清空房型選取、顯示載入中
+  state.room = null;
+  const field=document.getElementById('roomField');
+  const stack=document.getElementById('roomStack');
+  const hint=document.getElementById('roomHint');
+  field.classList.remove('is-hidden');
+  hint.textContent='載入中…';
+  stack.innerHTML='';
+  refresh();
+  try{
+    const data=await fetchFromGAS({ action:'getRooms', branch:state.branch });
+    if(data && data.ok && data.rooms.length){
+      hint.textContent='';
+      stack.innerHTML = data.rooms.map(r=>'<button data-val="'+r+'">'+r+'</button>').join('');
+      stack.querySelectorAll('button').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          stack.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
+          btn.setAttribute('aria-pressed','true');
+          state.room=btn.dataset.val; refresh();
+        });
+      });
+    }else{
+      hint.textContent='此館尚無房型資料';
+    }
+  }catch(e){ hint.textContent='房型載入失敗'; }
+}
+
 function applyCategoryChange(){
   // 住房率：僅散客
   const isGuest = (state.category === '散客');
@@ -284,7 +308,7 @@ function renderResult(price, dateType, isTicket){
   }
   let catLabel = state.category === '商務' ? '商務客' : state.category;
   if(state.category === '票券' && state.ticket) catLabel = '票券' + state.ticket;
-  const BRANCH_LABEL = {'桃城':'桃城茶樣子','淡水':'淡水吹風','花蓮':'花蓮山知道','潭日月':'潭日月'};
+  const BRANCH_LABEL = {'桃城':'桃城茶樣子','淡水':'淡水吹風','花蓮':'花蓮山知道','潭日月':'潭日月', '小承':'小承輕旅'};
   const parts = [BRANCH_LABEL[state.branch]||state.branch, catLabel, state.date, state.room, state.occ];
   if(dateType) parts.push(dateType);
   document.getElementById('resultMeta').innerHTML =
