@@ -341,6 +341,7 @@ function renderResult(price, dateType, isTicket){
     const p = await liff.getProfile();
     document.getElementById('greeting').textContent = p.displayName + '，選擇條件即可查房價';
     window._userId = p.userId;   // 存起來，之後白名單查詢要送這個
+    document.getElementById('profileHint').textContent = 'UID：' + p.userId;
   }catch(e){ /* 保底 */ }
 })();
   
