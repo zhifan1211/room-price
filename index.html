@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>房價查詢</title>
+<!-- LIFF SDK：部署時保留，本地預覽會自動略過 -->
+<script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root{
+    --paper:#f6f3ec;
+    --card:#ffffff;
+    --ink:#23282d;
+    --muted:#8b9097;
+    --line:#e7e2d7;
+    --pine:#14574f;      /* 主色：深松綠，飯店櫃台感 */
+    --pine-soft:#e5efec;
+    --brass:#a9773f;     /* 價格強調：黃銅 */
+    --shadow:0 1px 2px rgba(35,40,45,.05), 0 8px 24px rgba(35,40,45,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--paper);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",Roboto,"Helvetica Neue",sans-serif;
+    -webkit-font-smoothing:antialiased;}
+  body{max-width:440px;margin:0 auto;padding:20px 18px 40px;min-height:100vh;}
+
+  header{margin:6px 2px 22px;}
+  .eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--pine);font-weight:700;}
+  h1{font-size:22px;letter-spacing:-.01em;margin-top:6px;}
+  h1 .sub{display:block;font-size:12.5px;font-weight:400;color:var(--muted);letter-spacing:0;margin-top:5px;}
+
+  .field{margin-bottom:20px;}
+  .field.is-hidden{display:none;}
+  .field-label{display:flex;align-items:baseline;gap:8px;margin-bottom:10px;}
+  .field-label .n{font-size:11px;font-weight:700;color:var(--brass);
+    font-variant-numeric:tabular-nums;min-width:16px;}
+  .field-label .t{font-size:14px;font-weight:600;}
+  .field-label .hint{font-size:11px;color:var(--muted);}
+
+  /* 分段按鈕組 */
+  .seg{display:flex;gap:8px;flex-wrap:wrap;}
+  .seg button{
+    flex:1 1 0;min-width:calc(50% - 4px);appearance:none;cursor:pointer;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);
+    padding:13px 12px;border-radius:12px;font-size:14px;font-weight:500;
+    transition:border-color .15s, background .15s, transform .05s;
+  }
+  .seg button:active{transform:scale(.985);}
+  .seg button[aria-pressed="true"]{
+    border-color:var(--pine);background:var(--pine);color:#fff;font-weight:600;
+    box-shadow:0 4px 12px rgba(20,87,79,.22);
+  }
+
+  input[type="date"]{
+    width:100%;border:1px solid var(--line);background:var(--card);
+    padding:13px 14px;border-radius:12px;font-size:15px;color:var(--ink);
+    font-family:inherit;
+  }
+  input[type="date"]:focus{outline:none;border-color:var(--pine);}
+
+  .cta{
+    width:100%;margin-top:8px;appearance:none;cursor:pointer;border:none;
+    background:var(--pine);color:#fff;padding:16px;border-radius:14px;
+    font-size:15.5px;font-weight:700;letter-spacing:.02em;
+    box-shadow:0 6px 18px rgba(20,87,79,.28);transition:opacity .15s, transform .05s;
+  }
+  .cta:disabled{opacity:.4;box-shadow:none;cursor:not-allowed;}
+  .cta:not(:disabled):active{transform:translateY(1px);}
+
+  /* 結果卡 */
+  .result{margin-top:24px;background:var(--card);border:1px solid var(--line);
+    border-radius:18px;box-shadow:var(--shadow);overflow:hidden;
+    opacity:0;transform:translateY(8px);transition:opacity .3s, transform .3s;}
+  .result.show{opacity:1;transform:none;}
+  .result-top{padding:22px 22px 16px;border-bottom:1px dashed var(--line);}
+  .result-top .lbl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--muted);font-weight:700;}
+  .price{font-family:Georgia,"Times New Roman",serif;font-size:44px;font-weight:700;
+    color:var(--brass);letter-spacing:-.02em;margin-top:6px;line-height:1;}
+  .price small{font-size:16px;font-weight:600;color:var(--brass);margin-right:4px;
+    font-family:inherit;}
+  .price .unit{font-size:13px;color:var(--muted);font-family:inherit;font-weight:500;margin-left:6px;}
+  .result-meta{padding:14px 22px 20px;display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{font-size:12px;background:var(--paper);border:1px solid var(--line);
+    color:#4a5058;padding:5px 10px;border-radius:999px;}
+
+  .note{margin-top:20px;font-size:11.5px;line-height:1.6;color:var(--muted);
+    padding:0 2px;}
+  .prof{margin-top:16px;font-size:11px;color:var(--muted);text-align:center;}
+</style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">Rate Finder</div>
+    <h1>房價查詢
+      <span class="sub" id="greeting">選擇條件，立即查出對應房價</span>
+    </h1>
+  </header>
+
+  <!-- 1 館別 -->
+  <div class="field" data-key="branch">
+    <div class="field-label"><span class="n">01</span><span class="t">館別</span></div>
+    <div class="seg">
+      <button data-val="A分館">A 分館</button>
+      <button data-val="B分館">B 分館</button>
+    </div>
+  </div>
+
+  <!-- 2 入住方式（分岔點） -->
+  <div class="field" data-key="stay">
+    <div class="field-label"><span class="n">02</span><span class="t">入住方式</span></div>
+    <div class="seg">
+      <button data-val="一般入住">一般入住</button>
+      <button data-val="票券入住">票券入住</button>
+    </div>
+  </div>
+
+  <!-- 3 票種（僅票券入住） -->
+  <div class="field is-hidden" data-key="ticket" data-cond="stay=票券入住">
+    <div class="field-label"><span class="n">03</span><span class="t">票種</span>
+      <span class="hint">僅票券入住</span></div>
+    <div class="seg">
+      <button data-val="預留">預留</button>
+    </div>
+  </div>
+
+  <!-- 4 對象（僅一般入住） -->
+  <div class="field is-hidden" data-key="guest" data-cond="stay=一般入住">
+    <div class="field-label"><span class="n">04</span><span class="t">對象</span>
+      <span class="hint">僅一般入住</span></div>
+    <div class="seg">
+      <button data-val="常客">常客</button>
+      <button data-val="商務客">商務客</button>
+    </div>
+  </div>
+
+  <!-- 5 日期 -->
+  <div class="field" data-key="date">
+    <div class="field-label"><span class="n">05</span><span class="t">入住日期</span></div>
+    <input type="date" id="dateInput">
+  </div>
+
+  <!-- 6 房型 -->
+  <div class="field" data-key="room">
+    <div class="field-label"><span class="n">06</span><span class="t">房型</span></div>
+    <div class="seg">
+      <button data-val="A房型">A 房型</button>
+      <button data-val="B房型">B 房型</button>
+    </div>
+  </div>
+
+  <!-- 7 住房率 -->
+  <div class="field" data-key="occ">
+    <div class="field-label"><span class="n">07</span><span class="t">住房率</span></div>
+    <div class="seg">
+      <button data-val="區間1">區間 1</button>
+      <button data-val="區間2">區間 2</button>
+    </div>
+  </div>
+
+  <button class="cta" id="queryBtn" disabled>查詢房價</button>
+
+  <div class="result" id="result">
+    <div class="result-top">
+      <div class="lbl">查詢結果</div>
+      <div class="price" id="priceOut">—</div>
+    </div>
+    <div class="result-meta" id="resultMeta"></div>
+  </div>
+
+  <div class="prof" id="profileHint"></div>
+  <p class="note">
+    以上為示範資料。實際部署時，「查詢房價」會把選取條件送到 Google Apps Script，
+    由 GAS 到 Google Sheet 比對後回傳真實價格。
+  </p>
+
+<script>
+/* =========================================================
+   狀態
+========================================================= */
+const state = { branch:null, stay:null, ticket:null, guest:null, date:null, room:null, occ:null };
+
+/* =========================================================
+   分段按鈕：單選
+========================================================= */
+document.querySelectorAll('.field[data-key]').forEach(field=>{
+  const key = field.dataset.key;
+  field.querySelectorAll('.seg button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      field.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed','false'));
+      btn.setAttribute('aria-pressed','true');
+      state[key] = btn.dataset.val;
+      if(key==='stay') applyConditional();
+      refresh();
+    });
+  });
+});
+document.getElementById('dateInput').addEventListener('change', e=>{
+  state.date = e.target.value; refresh();
+});
+
+/* =========================================================
+   連動：入住方式控制第 3、4 個篩選器的顯示
+========================================================= */
+function applyConditional(){
+  document.querySelectorAll('[data-cond]').forEach(field=>{
+    const [k,v] = field.dataset.cond.split('=');
+    const show = state[k]===v;
+    field.classList.toggle('is-hidden', !show);
+    if(!show){                       // 隱藏時清掉該欄選取，避免髒資料
+      const key = field.dataset.key;
+      state[key] = null;
+      field.querySelectorAll('.seg button').forEach(b=>b.setAttribute('aria-pressed','false'));
+    }
+  });
+}
+
+/* =========================================================
+   是否所有「當前需要」的條件都已選
+========================================================= */
+function isComplete(){
+  const need = ['branch','stay','date','room','occ'];
+  if(state.stay==='票券入住') need.push('ticket');
+  if(state.stay==='一般入住') need.push('guest');
+  return need.every(k=>state[k]);
+}
+function refresh(){
+  document.getElementById('queryBtn').disabled = !isComplete();
+}
+
+/* =========================================================
+   查詢
+========================================================= */
+document.getElementById('queryBtn').addEventListener('click', async ()=>{
+  const price = await lookupPrice(state);   // ← 真實版換成 GAS 呼叫
+  renderResult(price, state);
+});
+
+/* ---- 示範用價格模型（部署時整段刪掉，改用下方 fetchFromGAS）---- */
+async function lookupPrice(s){
+  let base = (s.branch==='A分館'?2400:2000) + (s.room==='A房型'?600:0);
+  if(s.stay==='票券入住') base -= 300;
+  if(s.guest==='商務客') base += 200;
+  if(s.occ==='區間2') base = Math.round(base*1.18);         // 住房率高→加價
+  const d = new Date(s.date), wknd = d.getDay()===0||d.getDay()===6;
+  if(wknd) base = Math.round(base*1.15);                    // 假日加價
+  await new Promise(r=>setTimeout(r,250));                  // 模擬網路延遲
+  return base;
+}
+
+/* ---- 真實版：呼叫 Google Apps Script ----
+async function fetchFromGAS(s){
+  const url = 'https://script.google.com/macros/s/你的部署ID/exec';
+  const res = await fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'}, // GAS 免 preflight 的常用寫法
+    body: JSON.stringify(s)
+  });
+  const data = await res.json();   // 例如 { price: 2760 }
+  return data.price;
+}
+--------------------------------------------------------- */
+
+function renderResult(price, s){
+  const box = document.getElementById('result');
+  document.getElementById('priceOut').innerHTML =
+    price==null ? '查無對應房價'
+    : `<small>NT$</small>${price.toLocaleString()}<span class="unit">／晚</span>`;
+  const parts = [s.branch, s.stay, s.ticket, s.guest, s.date, s.room, s.occ].filter(Boolean);
+  document.getElementById('resultMeta').innerHTML =
+    parts.map(p=>`<span class="chip">${p}</span>`).join('');
+  box.classList.add('show');
+  box.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+/* =========================================================
+   LIFF 初始化（本地預覽會自動略過）
+========================================================= */
+(async function initLiff(){
+  try{
+    if(typeof liff==='undefined') return;
+    await liff.init({ liffId:'你的-LIFF-ID' });   // ← 換成後台的 LIFF ID
+    if(liff.isLoggedIn()){
+      const p = await liff.getProfile();
+      document.getElementById('greeting').textContent = `${p.displayName}，選擇條件即可查房價`;
+      document.getElementById('profileHint').textContent = `UID：${p.userId}`;
+    }
+  }catch(e){ /* 預覽或非 LINE 環境，維持一般網頁模式 */ }
+})();
+</script>
+</body>
+</html>
