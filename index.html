@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>房價查詢｜桃城茶樣子</title>
+<title>承億文旅房價查詢</title>
 <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
   :root{
@@ -111,13 +111,20 @@
 <body>
   <header>
     <div class="eyebrow">Rate Finder</div>
-    <h1>房價查詢
+    <h1>承億文旅房價查詢工具
       <span class="sub" id="greeting">選擇條件，查出對應房價</span>
     </h1>
   </header>
 
-  <div class="fixed-bar">
-    <span class="tag">桃城茶樣子</span>
+  <!-- 館別（目前僅開放桃城茶樣子，其餘館建好表格後移除註解即可） -->
+  <div class="field" data-key="branch">
+    <div class="field-label"><span class="t">館別</span></div>
+    <div class="seg">
+      <button data-val="桃城">桃城茶樣子</button>
+      <!-- <button data-val="淡水">淡水吹風</button> -->
+      <!-- <button data-val="花蓮">花蓮山知道</button> -->
+      <!-- <button data-val="潭日月">潭日月</button> -->
+    </div>
   </div>
 
   <!-- 入住類別 -->
@@ -126,6 +133,8 @@
     <div class="seg">
       <button data-val="散客">散客</button>
       <button data-val="商務">商務客</button>
+      <button data-val="團散">團散</button>
+      <button data-val="團體">團體</button>
       <button data-val="票券">票券</button>
     </div>
   </div>
@@ -182,8 +191,7 @@
   <div class="prof" id="profileHint"></div>
 
 <script>
-const FIXED = { branch:'桃城' };
-const state = { category:null, ticket:null, date:null, room:null, occ:null };
+const state = { branch:null, category:null, ticket:null, date:null, room:null, occ:null };
 
 /* 分段/直列按鈕：單選 */
 document.querySelectorAll('.field[data-key]').forEach(field=>{
@@ -218,7 +226,7 @@ function applyCategoryChange(){
 
 /* 完成判斷：散客要選住房率，其他不用 */
 function isComplete(){
-  if(!state.category || !state.date || !state.room) return false;
+  if(!state.branch || !state.category || !state.date || !state.room) return false;
   if(state.category === '散客' && !state.occ) return false;
   if(state.category === '票券' && !state.ticket) return false;
   return true;
@@ -231,7 +239,7 @@ document.getElementById('queryBtn').addEventListener('click', async ()=>{
   try{
     const realCategory = (state.category === '票券') ? ('票券' + state.ticket) : state.category;
     const payload = {
-      branch: FIXED.branch,
+      branch: state.branch,
       category: realCategory,         // 散客 / 商務 / 票券B2 / 票券B15
       date: state.date,
       roomType: state.room,
@@ -276,7 +284,8 @@ function renderResult(price, dateType, isTicket){
   }
   let catLabel = state.category === '商務' ? '商務客' : state.category;
   if(state.category === '票券' && state.ticket) catLabel = '票券' + state.ticket;
-  const parts = ['桃城茶樣子', catLabel, state.date, state.room, state.occ];
+  const BRANCH_LABEL = {'桃城':'桃城茶樣子','淡水':'淡水吹風','花蓮':'花蓮山知道','潭日月':'潭日月'};
+  const parts = [BRANCH_LABEL[state.branch]||state.branch, catLabel, state.date, state.room, state.occ];
   if(dateType) parts.push(dateType);
   document.getElementById('resultMeta').innerHTML =
     parts.filter(Boolean).map(p=>'<span class="chip">'+p+'</span>').join('');
