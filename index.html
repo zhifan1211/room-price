@@ -186,6 +186,16 @@
   <div class="prof" id="profileHint"></div>
 
 <script>
+  
+/* 房型對照表：新增館別或調整房型，改這裡即可（順序即顯示順序） */
+const ROOMS = {
+  '桃城': ['穀雨標準雙人房','白露行政雙人房','夏至標準四人房','小雪行政四人房','歲時紀獨賣套房'],
+  // '淡水': ['水鳥標準雙人房','藍天雅緻雙人房','紅樹經典雙人房','水鳥標準三人房','左/右岸家庭四人房'],
+  // '花蓮': ['台灣白標準雙人房','草玉行政雙人房','黑膽石標準三人房','綠蛇紋標準四人房','墨玉行政四人房','豐田玉獨賣套房'],
+  // '潭日月': ['樂山標準雙人房','仁山行政雙人房','仁水行政雙人房','樂山標準家庭房','知水行政家庭房','樂水行政家庭房','樂水靜心家庭房','方山水獨賣套房'],
+  // '小承': ['背包床位','單人雅房','雙人雅房','雙人套房','四人套房'],
+};
+  
 const state = { branch:null, category:null, ticket:null, date:null, room:null, occ:null };
 
 /* 分段/直列按鈕：單選 */
@@ -207,32 +217,28 @@ document.getElementById('dateInput').addEventListener('change', e=>{
 });
 
 /* 住房率連動：只有散客顯示 */
-async function onBranchChange(){
-  // 換館別時，清空房型選取、顯示載入中
+function onBranchChange(){
   state.room = null;
   const field=document.getElementById('roomField');
   const stack=document.getElementById('roomStack');
   const hint=document.getElementById('roomHint');
   field.classList.remove('is-hidden');
-  hint.textContent='載入中…';
-  stack.innerHTML='';
-  refresh();
-  try{
-    const data=await fetchFromGAS({ action:'getRooms', branch:state.branch });
-    if(data && data.ok && data.rooms.length){
-      hint.textContent='';
-      stack.innerHTML = data.rooms.map(r=>'<button data-val="'+r+'">'+r+'</button>').join('');
-      stack.querySelectorAll('button').forEach(btn=>{
-        btn.addEventListener('click',()=>{
-          stack.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
-          btn.setAttribute('aria-pressed','true');
-          state.room=btn.dataset.val; refresh();
-        });
+  const rooms = ROOMS[state.branch] || [];
+  if(rooms.length){
+    hint.textContent='';
+    stack.innerHTML = rooms.map(r=>'<button data-val="'+r+'">'+r+'</button>').join('');
+    stack.querySelectorAll('button').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        stack.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
+        btn.setAttribute('aria-pressed','true');
+        state.room=btn.dataset.val; refresh();
       });
-    }else{
-      hint.textContent='此館尚無房型資料';
-    }
-  }catch(e){ hint.textContent='房型載入失敗'; }
+    });
+  }else{
+    hint.textContent='此館尚無房型資料';
+    stack.innerHTML='';
+  }
+  refresh();
 }
 
 function applyCategoryChange(){
