@@ -276,7 +276,8 @@ document.getElementById('queryBtn').addEventListener('click', async ()=>{
       category: realCategory,         // 散客 / 商務 / 票券B2 / 票券B15
       date: state.date,
       roomType: state.room,
-      occupancy: state.occ || ''
+      occupancy: state.occ || '',
+      userId: window._userId || ''      // ← 加這行，送出使用者 UID
     };
     const data = await fetchFromGAS(payload);
     if(data && data.ok){
