@@ -327,15 +327,33 @@ function renderResult(price, dateType, isTicket){
 }
 
 (async function initLiff(){
-  const g = document.getElementById('greeting');
   try{
-    if(typeof liff==='undefined'){ g.textContent='LIFF SDK 未載入'; return; }
+    if(typeof liff==='undefined') return;
     await liff.init({ liffId:'2010574465-zTVFPGxP' });
-    g.textContent = 'init OK｜isInClient=' + liff.isInClient() + '｜isLoggedIn=' + liff.isLoggedIn();
-  }catch(e){
-    g.textContent = 'init 失敗：' + e.message;
-  }
+
+    // 沒登入就主動觸發 LINE 登入
+    if(!liff.isLoggedIn()){
+      liff.login();      // 會跳 LINE 登入，登入後自動導回本頁
+      return;            // 導轉中，先停住
+    }
+
+    // 到這裡代表已登入，拿得到 UID
+    const p = await liff.getProfile();
+    document.getElementById('greeting').textContent = p.displayName + '，選擇條件即可查房價';
+    window._userId = p.userId;   // 存起來，之後白名單查詢要送這個
+  }catch(e){ /* 保底 */ }
 })();
+  
+// (async function initLiff(){
+//   const g = document.getElementById('greeting');
+//   try{
+//     if(typeof liff==='undefined'){ g.textContent='LIFF SDK 未載入'; return; }
+//     await liff.init({ liffId:'2010574465-zTVFPGxP' });
+//     g.textContent = 'init OK｜isInClient=' + liff.isInClient() + '｜isLoggedIn=' + liff.isLoggedIn();
+//   }catch(e){
+//     g.textContent = 'init 失敗：' + e.message;
+//   }
+// })();
   
 // (async function initLiff(){
 //   try{
