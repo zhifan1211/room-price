@@ -279,7 +279,7 @@ function renderResult(price, s){
 (async function initLiff(){
   try{
     if(typeof liff==='undefined') return;
-    await liff.init({ liffId:'你的-LIFF-ID' });   // ← 換成後台的 LIFF ID
+    await liff.init({ liffId:'2010574465-zTVFPGxP' });   // ← 換成後台的 LIFF ID
     if(liff.isLoggedIn()){
       const p = await liff.getProfile();
       document.getElementById('greeting').textContent = `${p.displayName}，選擇條件即可查房價`;
