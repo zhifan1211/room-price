@@ -27,18 +27,29 @@
   h1{font-size:22px;letter-spacing:-.01em;margin-top:6px;}
   h1 .sub{display:block;font-size:12.5px;font-weight:400;color:var(--muted);letter-spacing:0;margin-top:5px;}
 
-  /* 固定條件列 */
   .fixed-bar{display:flex;flex-wrap:wrap;gap:6px;margin:0 2px 22px;}
   .fixed-bar .tag{font-size:12px;background:var(--pine);color:#fff;
     padding:6px 11px;border-radius:999px;font-weight:600;letter-spacing:.02em;}
-  .fixed-bar .tag.ghost{background:transparent;color:var(--pine);border:1px solid var(--pine);font-weight:500;}
 
   .field{margin-bottom:20px;}
+  .field.is-hidden{display:none;}
   .field-label{display:flex;align-items:baseline;gap:8px;margin-bottom:10px;}
   .field-label .t{font-size:14px;font-weight:600;}
   .field-label .hint{font-size:11px;color:var(--muted);}
 
-  /* 房型：整寬直列 */
+  .seg{display:flex;gap:8px;flex-wrap:wrap;}
+  .seg button{
+    flex:1 1 0;min-width:calc(50% - 4px);appearance:none;cursor:pointer;
+    border:1px solid var(--line);background:var(--card);color:var(--ink);
+    padding:13px 12px;border-radius:12px;font-size:14px;font-weight:500;
+    transition:border-color .15s, background .15s, transform .05s;
+  }
+  .seg button:active{transform:scale(.985);}
+  .seg button[aria-pressed="true"]{
+    border-color:var(--pine);background:var(--pine);color:#fff;font-weight:600;
+    box-shadow:0 4px 12px rgba(20,87,79,.22);
+  }
+
   .stack{display:flex;flex-direction:column;gap:8px;}
   .stack button{
     width:100%;text-align:left;appearance:none;cursor:pointer;
@@ -52,7 +63,6 @@
     box-shadow:0 4px 12px rgba(20,87,79,.22);
   }
 
-  /* 住房率：2x2 */
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .grid button{
     appearance:none;cursor:pointer;
@@ -102,15 +112,21 @@
   <header>
     <div class="eyebrow">Rate Finder</div>
     <h1>房價查詢
-      <span class="sub" id="greeting">選擇日期與房型，查出對應房價</span>
+      <span class="sub" id="greeting">選擇條件，查出對應房價</span>
     </h1>
   </header>
 
-  <!-- 固定條件（此版本鎖定桃城茶樣子・一般入住・常客） -->
   <div class="fixed-bar">
     <span class="tag">桃城茶樣子</span>
-    <span class="tag ghost">一般入住</span>
-    <span class="tag ghost">常客</span>
+  </div>
+
+  <!-- 入住類別 -->
+  <div class="field" data-key="category">
+    <div class="field-label"><span class="t">入住類別</span></div>
+    <div class="seg">
+      <button data-val="散客">散客</button>
+      <button data-val="商務">商務客</button>
+    </div>
   </div>
 
   <!-- 日期 -->
@@ -131,10 +147,10 @@
     </div>
   </div>
 
-  <!-- 住房率 -->
-  <div class="field" data-key="occ">
+  <!-- 住房率（僅散客顯示） -->
+  <div class="field is-hidden" data-key="occ" id="occField">
     <div class="field-label"><span class="t">住房率</span>
-      <span class="hint">目前請自行選擇</span></div>
+      <span class="hint">僅散客適用</span></div>
     <div class="grid">
       <button data-val="30%以下">30%以下</button>
       <button data-val="31%-50%">31%-50%</button>
@@ -156,15 +172,10 @@
   <div class="prof" id="profileHint"></div>
 
 <script>
-/* =========================================================
-   狀態：只有日期、房型、住房率由使用者選
-========================================================= */
-const state = { date:null, room:null, occ:null };
+const FIXED = { branch:'桃城' };
+const state = { category:null, date:null, room:null, occ:null };
 
-/* 固定條件（此版本鎖定，未來擴充改這裡即可） */
-const FIXED = { branch:'桃城', stay:'一般入住', guest:'常客' };
-
-/* 分段按鈕：單選 */
+/* 分段/直列按鈕：單選 */
 document.querySelectorAll('.field[data-key]').forEach(field=>{
   const key = field.dataset.key;
   field.querySelectorAll('button').forEach(btn=>{
@@ -172,6 +183,7 @@ document.querySelectorAll('.field[data-key]').forEach(field=>{
       field.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
       btn.setAttribute('aria-pressed','true');
       state[key] = btn.dataset.val;
+      if(key==='category') applyOccupancyVisibility();
       refresh();
     });
   });
@@ -180,23 +192,35 @@ document.getElementById('dateInput').addEventListener('change', e=>{
   state.date = e.target.value; refresh();
 });
 
-function isComplete(){ return state.date && state.room && state.occ; }
+/* 住房率連動：只有散客顯示 */
+function applyOccupancyVisibility(){
+  const isGuest = (state.category === '散客');
+  const field = document.getElementById('occField');
+  field.classList.toggle('is-hidden', !isGuest);
+  if(!isGuest){                       // 非散客時清掉住房率選取
+    state.occ = null;
+    field.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
+  }
+}
+
+/* 完成判斷：散客要選住房率，其他不用 */
+function isComplete(){
+  if(!state.category || !state.date || !state.room) return false;
+  if(state.category === '散客' && !state.occ) return false;
+  return true;
+}
 function refresh(){ document.getElementById('queryBtn').disabled = !isComplete(); }
 
-/* =========================================================
-   查詢：呼叫 GAS
-========================================================= */
 document.getElementById('queryBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('queryBtn');
   btn.disabled = true; btn.textContent = '查詢中…';
   try{
     const payload = {
-      branch: FIXED.branch,       // 送 '桃城'（對齊 Sheet），畫面顯示才是全名
-      stay: FIXED.stay,
-      guest: FIXED.guest,
+      branch: FIXED.branch,
+      category: state.category,       // 散客 / 商務
       date: state.date,
       roomType: state.room,
-      occupancy: state.occ
+      occupancy: state.occ || ''      // 商務時為空，後端會自動略過
     };
     const data = await fetchFromGAS(payload);
     if(data && data.ok){
@@ -218,7 +242,7 @@ async function fetchFromGAS(s){
     headers:{'Content-Type':'text/plain;charset=utf-8'},
     body: JSON.stringify(s)
   });
-  const data = await res.json();      // 後端回傳 { ok, price, dateType }
+  const data = await res.json();
   return data;
 }
 
@@ -230,26 +254,24 @@ function renderResult(price, dateType){
     out.textContent = '查無對應房價';
   }else{
     out.className = 'price';
-    out.innerHTML = `<small>NT$</small>${Number(price).toLocaleString()}<span class="unit">／晚</span>`;
+    out.innerHTML = '<small>NT$</small>' + Number(price).toLocaleString() + '<span class="unit">／晚</span>';
   }
-  const parts = ['桃城茶樣子', state.date, state.room, state.occ];
-  if(dateType) parts.push(dateType);   // 顯示「這天算哪種日期定義」
+  const catLabel = state.category === '商務' ? '商務客' : state.category;
+  const parts = ['桃城茶樣子', catLabel, state.date, state.room, state.occ];
+  if(dateType) parts.push(dateType);
   document.getElementById('resultMeta').innerHTML =
-    parts.filter(Boolean).map(p=>`<span class="chip">${p}</span>`).join('');
+    parts.filter(Boolean).map(p=>'<span class="chip">'+p+'</span>').join('');
   box.classList.add('show');
   box.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
-/* =========================================================
-   LIFF 初始化
-========================================================= */
 (async function initLiff(){
   try{
     if(typeof liff==='undefined') return;
     await liff.init({ liffId:'2010574465-zTVFPGxP' });
     if(liff.isLoggedIn()){
       const p = await liff.getProfile();
-      document.getElementById('greeting').textContent = `${p.displayName}，選擇日期與房型即可查房價`;
+      document.getElementById('greeting').textContent = p.displayName + '，選擇條件即可查房價';
     }
   }catch(e){ /* 非 LINE 環境維持一般網頁 */ }
 })();
