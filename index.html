@@ -327,15 +327,26 @@ function renderResult(price, dateType, isTicket){
 }
 
 (async function initLiff(){
+  const g = document.getElementById('greeting');
   try{
-    if(typeof liff==='undefined') return;
+    if(typeof liff==='undefined'){ g.textContent='LIFF SDK 未載入'; return; }
     await liff.init({ liffId:'2010574465-zTVFPGxP' });
-    if(liff.isLoggedIn()){
-      const p = await liff.getProfile();
-      document.getElementById('greeting').textContent = p.displayName + '，選擇條件即可查房價';
-    }
-  }catch(e){ /* 非 LINE 環境維持一般網頁 */ }
+    g.textContent = 'init OK｜isInClient=' + liff.isInClient() + '｜isLoggedIn=' + liff.isLoggedIn();
+  }catch(e){
+    g.textContent = 'init 失敗：' + e.message;
+  }
 })();
+  
+// (async function initLiff(){
+//   try{
+//     if(typeof liff==='undefined') return;
+//     await liff.init({ liffId:'2010574465-zTVFPGxP' });
+//     if(liff.isLoggedIn()){
+//       const p = await liff.getProfile();
+//       document.getElementById('greeting').textContent = p.displayName + '，選擇條件即可查房價';
+//     }
+//   }catch(e){ /* 非 LINE 環境維持一般網頁 */ }
+// })();
 </script>
 </body>
 </html>
