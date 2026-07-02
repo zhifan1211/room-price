@@ -126,6 +126,16 @@
     <div class="seg">
       <button data-val="散客">散客</button>
       <button data-val="商務">商務客</button>
+      <button data-val="票券">票券</button>
+    </div>
+  </div>
+
+  <!-- 票種（僅票券顯示） -->
+  <div class="field is-hidden" data-key="ticket" id="ticketField">
+    <div class="field-label"><span class="t">票種</span><span class="hint">僅票券適用</span></div>
+    <div class="seg">
+      <button data-val="B2">B2</button>
+      <button data-val="B15">B15</button>
     </div>
   </div>
 
@@ -173,7 +183,7 @@
 
 <script>
 const FIXED = { branch:'桃城' };
-const state = { category:null, date:null, room:null, occ:null };
+const state = { category:null, ticket:null, date:null, room:null, occ:null };
 
 /* 分段/直列按鈕：單選 */
 document.querySelectorAll('.field[data-key]').forEach(field=>{
@@ -183,7 +193,7 @@ document.querySelectorAll('.field[data-key]').forEach(field=>{
       field.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
       btn.setAttribute('aria-pressed','true');
       state[key] = btn.dataset.val;
-      if(key==='category') applyOccupancyVisibility();
+      if(key==='category') applyCategoryChange();
       refresh();
     });
   });
@@ -193,20 +203,24 @@ document.getElementById('dateInput').addEventListener('change', e=>{
 });
 
 /* 住房率連動：只有散客顯示 */
-function applyOccupancyVisibility(){
+function applyCategoryChange(){
+  // 住房率：僅散客
   const isGuest = (state.category === '散客');
-  const field = document.getElementById('occField');
-  field.classList.toggle('is-hidden', !isGuest);
-  if(!isGuest){                       // 非散客時清掉住房率選取
-    state.occ = null;
-    field.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false'));
-  }
+  const occ = document.getElementById('occField');
+  occ.classList.toggle('is-hidden', !isGuest);
+  if(!isGuest){ state.occ=null; occ.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false')); }
+  // 票種：僅票券
+  const isTicket = (state.category === '票券');
+  const tk = document.getElementById('ticketField');
+  tk.classList.toggle('is-hidden', !isTicket);
+  if(!isTicket){ state.ticket=null; tk.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed','false')); }
 }
 
 /* 完成判斷：散客要選住房率，其他不用 */
 function isComplete(){
   if(!state.category || !state.date || !state.room) return false;
   if(state.category === '散客' && !state.occ) return false;
+  if(state.category === '票券' && !state.ticket) return false;
   return true;
 }
 function refresh(){ document.getElementById('queryBtn').disabled = !isComplete(); }
@@ -215,16 +229,17 @@ document.getElementById('queryBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('queryBtn');
   btn.disabled = true; btn.textContent = '查詢中…';
   try{
+    const realCategory = (state.category === '票券') ? ('票券' + state.ticket) : state.category;
     const payload = {
       branch: FIXED.branch,
-      category: state.category,       // 散客 / 商務
+      category: realCategory,         // 散客 / 商務 / 票券B2 / 票券B15
       date: state.date,
       roomType: state.room,
-      occupancy: state.occ || ''      // 商務時為空，後端會自動略過
+      occupancy: state.occ || ''
     };
     const data = await fetchFromGAS(payload);
     if(data && data.ok){
-      renderResult(data.price, data.dateType);
+      renderResult(data.price, data.dateType, state.category === '票券');
     }else{
       renderResult(null, null);
     }
@@ -246,7 +261,7 @@ async function fetchFromGAS(s){
   return data;
 }
 
-function renderResult(price, dateType){
+function renderResult(price, dateType, isTicket){
   const box = document.getElementById('result');
   const out = document.getElementById('priceOut');
   if(price==null){
@@ -254,9 +269,13 @@ function renderResult(price, dateType){
     out.textContent = '查無對應房價';
   }else{
     out.className = 'price';
-    out.innerHTML = '<small>NT$</small>' + Number(price).toLocaleString() + '<span class="unit">／晚</span>';
+    const n = Number(price).toLocaleString();
+    out.innerHTML = isTicket
+      ? '<small>+NT$</small>' + n + '<span class="unit">／晚</span>'
+      : '<small>NT$</small>' + n + '<span class="unit">／晚</span>';
   }
-  const catLabel = state.category === '商務' ? '商務客' : state.category;
+  let catLabel = state.category === '商務' ? '商務客' : state.category;
+  if(state.category === '票券' && state.ticket) catLabel = '票券' + state.ticket;
   const parts = ['桃城茶樣子', catLabel, state.date, state.room, state.occ];
   if(dateType) parts.push(dateType);
   document.getElementById('resultMeta').innerHTML =
