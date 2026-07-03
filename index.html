@@ -115,7 +115,7 @@
   <header>
     <div class="eyebrow">Rate Finder</div>
     <h1>承億文旅房價查詢工具
-      <span class="sub" id="greeting">選擇條件，查出對應房價</span>
+      <span class="sub" id="greeting">此工具僅限承億文旅員工使用/n選擇條件，查出對應房價</span>
     </h1>
   </header>
 
@@ -286,7 +286,11 @@ document.getElementById('queryBtn').addEventListener('click', async ()=>{
       renderResult(null, null);
     }
   }catch(err){
-    alert('查詢失敗，請稍後再試');
+    if(err.name === 'AbortError'){
+      alert('查詢逾時，請稍後再試一次');
+    }else{
+      alert('查詢失敗，請稍後再試');
+    }
   }finally{
     btn.disabled = false; btn.textContent = '查詢房價';
   }
@@ -294,13 +298,19 @@ document.getElementById('queryBtn').addEventListener('click', async ()=>{
 
 async function fetchFromGAS(s){
   const url = 'https://script.google.com/macros/s/AKfycbwN8s2rpKF_Hvjtg7ir2zaJN2uEDEBAWbB9HN03vLwxlbvtOKRbO7EukhQa3W1IwJE/exec';
-  const res = await fetch(url, {
-    method:'POST',
-    headers:{'Content-Type':'text/plain;charset=utf-8'},
-    body: JSON.stringify(s)
-  });
-  const data = await res.json();
-  return data;
+  const controller = new AbortController();
+  const timer = setTimeout(()=>controller.abort(), 12000);   // 12 秒上限
+  try{
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify(s),
+      signal: controller.signal
+    });
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function renderResult(price, dateType, isTicket){
