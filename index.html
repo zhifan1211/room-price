@@ -92,13 +92,6 @@
     box-shadow:0 6px 18px rgba(20,87,79,.28);transition:opacity .15s, transform .05s;
   }
   .cta:disabled{opacity:.4;box-shadow:none;cursor:not-allowed;}
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .spinner{
-    display:inline-block;width:15px;height:15px;
-    border:2px solid rgba(255,255,255,.4);border-top-color:#fff;
-    border-radius:50%;animation:spin .7s linear infinite;
-    vertical-align:-2px;margin-right:8px;
-  }
   .cta:not(:disabled):active{transform:translateY(1px);}
 
   .result{margin-top:24px;background:var(--card);border:1px solid var(--line);
@@ -275,7 +268,7 @@ function refresh(){ document.getElementById('queryBtn').disabled = !isComplete()
 
 document.getElementById('queryBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('queryBtn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>查詢中…';
+  btn.disabled = true; btn.textContent = '查詢中…';
   try{
     const realCategory = (state.category === '票券') ? ('票券' + state.ticket) : state.category;
     const payload = {
